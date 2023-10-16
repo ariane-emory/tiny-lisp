@@ -1035,18 +1035,19 @@ Object *evalMacro(Object **args, Object **env, GC_PARAM) {
 }
 
 Object *expandMacroTo(Object **macro, Object **args, Object **cons, GC_PARAM) {
-  GC_TRACE(gcEnv, newEnv(macro, args, GC_ROOTS));
-  GC_TRACE(gcBody, (*macro)->body);
-  GC_TRACE(gcObject, evalProgn(gcBody, gcEnv, GC_ROOTS));
+  Object *  env      = newEnv(macro, args, GC_ROOTS);
+  Object ** gcEnv    = &env;
+  Object ** gcBody   = &(*macro)->body;
+  Object *  object   = evalProgn(gcBody, gcEnv, GC_ROOTS);
 
-  *gcObject = evalExpr(gcObject, gcEnv, GC_ROOTS);
+  object = evalExpr(&object, gcEnv, GC_ROOTS);
 
-  if ((*gcObject)->type == TYPE_CONS) {
-    (*cons)->car = (*gcObject)->car;
-    (*cons)->cdr = (*gcObject)->cdr;
+  if ((object)->type == TYPE_CONS) {
+    (*cons)->car = object->car;
+    (*cons)->cdr = object->cdr;
   } else {
     (*cons)->car = newSymbol("progn", GC_ROOTS);
-    (*cons)->cdr = newCons(gcObject, &nil, GC_ROOTS);
+    (*cons)->cdr = newCons(&object, &nil, GC_ROOTS);
   }
 
   return *cons;
