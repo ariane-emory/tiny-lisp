@@ -1034,35 +1034,11 @@ Object *evalMacro(Object **args, Object **env, GC_PARAM) {
   return newMacro(gcParams, gcBody, env, GC_ROOTS);
 }
 
-/* Object *expandMacro(Object **macro, Object **args, GC_PARAM) { */
-/*   GC_TRACE(gcEnv, newEnv(macro, args, GC_ROOTS)); */
-/*   GC_TRACE(gcBody, (*macro)->body); */
-
-/*   GC_TRACE(gcObject, evalProgn(gcBody, gcEnv, GC_ROOTS)); */
-/*   *gcObject = evalExpr(gcObject, gcEnv, GC_ROOTS); */
-
-/*   return *gcObject; */
-/* } */
-
-/* Object *expandMacroTo(Object **macro, Object **args, Object **cons, GC_PARAM) { */
-/*   GC_TRACE(gcObject, expandMacro(macro, args, GC_ROOTS)); */
-
-/*   if ((*gcObject)->type == TYPE_CONS) { */
-/*     (*cons)->car = (*gcObject)->car; */
-/*     (*cons)->cdr = (*gcObject)->cdr; */
-/*   } else { */
-/*     (*cons)->car = newSymbol("progn", GC_ROOTS); */
-/*     (*cons)->cdr = newCons(gcObject, &nil, GC_ROOTS); */
-/*   } */
-
-/*   return *cons; */
-/* } */
-
 Object *expandMacroTo(Object **macro, Object **args, Object **cons, GC_PARAM) {
   GC_TRACE(gcEnv, newEnv(macro, args, GC_ROOTS));
   GC_TRACE(gcBody, (*macro)->body);
-
   GC_TRACE(gcObject, evalProgn(gcBody, gcEnv, GC_ROOTS));
+
   *gcObject = evalExpr(gcObject, gcEnv, GC_ROOTS);
 
   if ((*gcObject)->type == TYPE_CONS) {
