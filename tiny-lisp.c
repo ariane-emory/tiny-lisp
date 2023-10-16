@@ -39,7 +39,7 @@ struct Object {
     struct { Object *car, *cdr; };                  // cons
     struct { Object *params, *body, *env; };        // lambda, macro
     struct { int primitive; char *name; };          // primitive
-    struct { Object *parent, *vars, *vals; };       // env
+    struct { Object *parent, *syms, *vals; };       // env
     struct { Object *forward; };                    // forwarding pointer
   };
 };
@@ -207,7 +207,7 @@ void gc(GC_PARAM) {
         break;
       case TYPE_ENV:
         object->parent = gcMoveObject(object->parent);
-        object->vars = gcMoveObject(object->vars);
+        object->syms = gcMoveObject(object->syms);
         object->vals = gcMoveObject(object->vals);
         break;
     }
@@ -376,7 +376,7 @@ Object *newEnv(Object **func, Object **vals, GC_PARAM) {
   Object *object = newObject(TYPE_ENV, GC_ROOTS);
 
   if ((*func) == nil)
-    object->parent = object->vars = object->vals = nil;
+    object->parent = object->syms = object->vals = nil;
   else {
     Object *param = (*func)->params, *val = *vals;
 
@@ -396,7 +396,7 @@ Object *newEnv(Object **func, Object **vals, GC_PARAM) {
     }
 
     object->parent = (*func)->env;
-    object->vars = (*func)->params;
+    object->syms = (*func)->params;
     object->vals = *vals;
   } 
 
@@ -708,7 +708,7 @@ void writeObject(Object *object, bool readably, FILE *file) {
     break
   CASE(TYPE_LAMBDA, "Lambda", object->params);
   CASE(TYPE_MACRO, "Macro", object->params);
-  CASE(TYPE_ENV, "Env", object->vars);
+  CASE(TYPE_ENV, "Env", object->syms);
 #undef CASE
   }
 }
@@ -716,65 +716,69 @@ void writeObject(Object *object, bool readably, FILE *file) {
 // ENVIRONMENT ////////////////////////////////////////////////////////////////
 
 /* An environment consists of a pointer to its parent environment (if any) and
- * two parallel lists - vars and vals.
+ * two parallel lists - syms and vals.
  *
- * Case 1 - vars is a regular list:
- *   vars: (a b c), vals: (1 2 3)        ; a = 1, b = 2, c = 3
+ * Case 1 - syms is a regular list:
+ *   syms: (a b c), vals: (1 2 3)        ; a = 1, b = 2, c = 3
  *
- * Case 2 - vars is a dotted list:
- *   vars: (a b . c), vals: (1 2)        ; a = 1, b = 2, c = nil
- *   vars: (a b . c), vals: (1 2 3)      ; a = 1, b = 2, c = (3)
- *   vars: (a b . c), vals: (1 2 3 4 5)  ; a = 1, b = 2, c = (3 4 5)
+ * Case 2 - syms is a dotted list:
+ *   syms: (a b . c), vals: (1 2)        ; a = 1, b = 2, c = nil
+ *   syms: (a b . c), vals: (1 2 3)      ; a = 1, b = 2, c = (3)
+ *   syms: (a b . c), vals: (1 2 3 4 5)  ; a = 1, b = 2, c = (3 4 5)
  *
- * Case 3 - vars is a symbol:
- *   vars: a, vals: nil                  ; a = nil
- *   vars: a, vals: (1)                  ; a = (1)
- *   vars: a, vals: (1 2 3)              ; a = (1 2 3)
+ * Case 3 - syms is a symbol:
+ *   syms: a, vals: nil                  ; a = nil
+ *   syms: a, vals: (1)                  ; a = (1)
+ *   syms: a, vals: (1 2 3)              ; a = (1 2 3)
  *
- * Case 4 - vars and vals are both nil:
- *   vars: nil, vals: nil
+ * Case 4 - syms and vals are both nil:
+ *   syms: nil, vals: nil
  */
 
-Object *envLookup(Object *var, Object *env) {
+Object *envLookup(Object *sym, Object *env) {
   for (; env != nil; env = env->parent) {
-    Object *vars = env->vars, *vals = env->vals;
+    Object *syms = env->syms, *vals = env->vals;
 
-    for (; vars->type == TYPE_CONS; vars = vars->cdr, vals = vals->cdr)
-      if (vars->car == var)
+    printf("envLookup: %s\n", sym->string);
+    
+    for (; syms->type == TYPE_CONS; syms = syms->cdr, vals = vals->cdr)
+      if (syms->car == sym)
         return vals->car;
 
-    if (vars == var)
+    if (syms == sym)
       return vals;
   }
 
-  exceptionWithObject(var, "has no value");
+  exceptionWithObject(sym, "has no value");
 }
 
-Object *envAdd(Object **var, Object **val, Object **env, GC_PARAM) {
-  GC_TRACE(gcVars, newCons(var, &nil, GC_ROOTS));
+Object *envAdd(Object **sym, Object **val, Object **env, GC_PARAM) {
+  GC_TRACE(gcSyms, newCons(sym, &nil, GC_ROOTS));
   GC_TRACE(gcVals, newCons(val, &nil, GC_ROOTS));
 
-  (*gcVars)->cdr = (*env)->vars, (*env)->vars = *gcVars;
+  (*gcSyms)->cdr = (*env)->syms, (*env)->syms = *gcSyms;
   (*gcVals)->cdr = (*env)->vals, (*env)->vals = *gcVals;
 
   return *val;
 }
 
-Object *envSet(Object **var, Object **val, Object **env, GC_PARAM) {
+Object *envSet(Object **sym, Object **val, Object **env, GC_PARAM) {
   GC_TRACE(gcEnv, *env);
 
+  printf("envSet: %s\n", (*sym)->string);
+  
   for (;;) {
-    Object *vars = (*gcEnv)->vars, *vals = (*gcEnv)->vals;
+    Object *syms = (*gcEnv)->syms, *vals = (*gcEnv)->vals;
 
-    for (; vars->type == TYPE_CONS; vars = vars->cdr, vals = vals->cdr) {
-      if (vars->car == *var)
+    for (; syms->type == TYPE_CONS; syms = syms->cdr, vals = vals->cdr) {
+      if (syms->car == *sym)
         return vals->car = *val;
-      if (vars->cdr == *var)
+      if (syms->cdr == *sym)
         return vals->cdr = *val;
     }
 
     if ((*gcEnv)->parent == nil)
-      return envAdd(var, val, gcEnv, GC_ROOTS);
+      return envAdd(sym, val, gcEnv, GC_ROOTS);
     else
       *gcEnv = (*gcEnv)->parent;
   }
@@ -953,16 +957,16 @@ Object *evalSetq(Object **args, Object **env, GC_PARAM) {
   if (*args == nil)
     return nil;
   else {
-    GC_TRACE(gcVar, (*args)->car);
+    GC_TRACE(gcSym, (*args)->car);
     GC_TRACE(gcVal, (*args)->cdr->car);
 
-    if ((*gcVar)->type != TYPE_SYMBOL)
-      exceptionWithObject(*gcVar, "is not a symbol");
-    if (*gcVar == nil || *gcVar == t)
-      exceptionWithObject(*gcVar, "is a constant and cannot be set");
+    if ((*gcSym)->type != TYPE_SYMBOL)
+      exceptionWithObject(*gcSym, "is not a symbol");
+    if (*gcSym == nil || *gcSym == t)
+      exceptionWithObject(*gcSym, "is a constant and cannot be set");
 
     *gcVal = evalExpr(gcVal, env, GC_ROOTS);
-    envSet(gcVar, gcVal, env, GC_ROOTS);
+    envSet(gcSym, gcVal, env, GC_ROOTS);
 
     if ((*args)->cdr->cdr == nil)
       return *gcVal;
@@ -1030,18 +1034,36 @@ Object *evalMacro(Object **args, Object **env, GC_PARAM) {
   return newMacro(gcParams, gcBody, env, GC_ROOTS);
 }
 
-Object *expandMacro(Object **macro, Object **args, GC_PARAM) {
+/* Object *expandMacro(Object **macro, Object **args, GC_PARAM) { */
+/*   GC_TRACE(gcEnv, newEnv(macro, args, GC_ROOTS)); */
+/*   GC_TRACE(gcBody, (*macro)->body); */
+
+/*   GC_TRACE(gcObject, evalProgn(gcBody, gcEnv, GC_ROOTS)); */
+/*   *gcObject = evalExpr(gcObject, gcEnv, GC_ROOTS); */
+
+/*   return *gcObject; */
+/* } */
+
+/* Object *expandMacroTo(Object **macro, Object **args, Object **cons, GC_PARAM) { */
+/*   GC_TRACE(gcObject, expandMacro(macro, args, GC_ROOTS)); */
+
+/*   if ((*gcObject)->type == TYPE_CONS) { */
+/*     (*cons)->car = (*gcObject)->car; */
+/*     (*cons)->cdr = (*gcObject)->cdr; */
+/*   } else { */
+/*     (*cons)->car = newSymbol("progn", GC_ROOTS); */
+/*     (*cons)->cdr = newCons(gcObject, &nil, GC_ROOTS); */
+/*   } */
+
+/*   return *cons; */
+/* } */
+
+Object *expandMacroTo(Object **macro, Object **args, Object **cons, GC_PARAM) {
   GC_TRACE(gcEnv, newEnv(macro, args, GC_ROOTS));
   GC_TRACE(gcBody, (*macro)->body);
 
   GC_TRACE(gcObject, evalProgn(gcBody, gcEnv, GC_ROOTS));
   *gcObject = evalExpr(gcObject, gcEnv, GC_ROOTS);
-
-  return *gcObject;
-}
-
-Object *expandMacroTo(Object **macro, Object **args, Object **cons, GC_PARAM) {
-  GC_TRACE(gcObject, expandMacro(macro, args, GC_ROOTS));
 
   if ((*gcObject)->type == TYPE_CONS) {
     (*cons)->car = (*gcObject)->car;
@@ -1054,17 +1076,17 @@ Object *expandMacroTo(Object **macro, Object **args, Object **cons, GC_PARAM) {
   return *cons;
 }
 
-Object *evalList(Object **args, Object **env, GC_PARAM) {
+Object *evalArgs(Object **args, Object **env, GC_PARAM) {
   if ((*args)->type != TYPE_CONS)
     return evalExpr(args, env, GC_ROOTS);
   else {
-    GC_TRACE(gcObject, (*args)->car);
-    GC_TRACE(gcArgs, (*args)->cdr);
+    GC_TRACE(gcHead, (*args)->car);
+    GC_TRACE(gcTail, (*args)->cdr);
 
-    *gcObject = evalExpr(gcObject, env, GC_ROOTS);
-    *gcArgs = evalList(gcArgs, env, GC_ROOTS);
+    *gcHead = evalExpr(gcHead, env, GC_ROOTS);
+    *gcTail = evalArgs(gcTail, env, GC_ROOTS);
 
-    return newCons(gcObject, gcArgs, GC_ROOTS);
+    return newCons(gcHead, gcTail, GC_ROOTS);
   }
 }
 
@@ -1090,7 +1112,7 @@ Object *evalExpr(Object **object, Object **env, GC_PARAM) {
 
     if ((*gcFunc)->type == TYPE_LAMBDA) {
       *gcBody = (*gcFunc)->body;
-      *gcArgs = evalList(gcArgs, gcEnv, GC_ROOTS);
+      *gcArgs = evalArgs(gcArgs, gcEnv, GC_ROOTS);
       *gcEnv = newEnv(gcFunc, gcArgs, GC_ROOTS);
       *gcObject = evalProgn(gcBody, gcEnv, GC_ROOTS);
     } else if ((*gcFunc)->type == TYPE_MACRO) {
@@ -1124,7 +1146,7 @@ Object *evalExpr(Object **object, Object **env, GC_PARAM) {
                              break;
       case PRIMITIVE_LAMBDA: return evalLambda(gcArgs, gcEnv, GC_ROOTS);
       case PRIMITIVE_MACRO:  return evalMacro(gcArgs, gcEnv, GC_ROOTS);
-      default:               *gcArgs = evalList(gcArgs, gcEnv, GC_ROOTS);
+      default:               *gcArgs = evalArgs(gcArgs, gcEnv, GC_ROOTS);
                              return primitive->eval(gcArgs, GC_ROOTS);
       }
     } else
@@ -1192,7 +1214,7 @@ static char *stdlib = LISP(
 
 Object *newRootEnv(GC_PARAM) {
   GC_TRACE(gcEnv, newEnv(&nil, &nil, GC_ROOTS));
-  GC_TRACE(gcVar, nil);
+  GC_TRACE(gcSym, nil);
   GC_TRACE(gcVal, nil);
 
   // add constants
@@ -1203,10 +1225,10 @@ Object *newRootEnv(GC_PARAM) {
   int nPrimitives = sizeof (primitives) / sizeof (primitives[0]);
 
   for (int i = 0; i < nPrimitives; ++i) {
-    *gcVar = newSymbol(primitives[i].name, GC_ROOTS);
+    *gcSym = newSymbol(primitives[i].name, GC_ROOTS);
     *gcVal = newPrimitive(i, primitives[i].name, GC_ROOTS);
 
-    envSet(gcVar, gcVal, gcEnv, GC_ROOTS);
+    envSet(gcSym, gcVal, gcEnv, GC_ROOTS);
   }
 
   // add standard library
