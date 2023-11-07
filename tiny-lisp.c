@@ -739,7 +739,7 @@ Object *envLookup(Object *sym, Object *env) {
   for (; env != nil; env = env->parent) {
     Object *syms = env->syms, *vals = env->vals;
 
-    printf("envLookup: %s\n", sym->string);
+    //printf("envLookup: %s\n", sym->string);
     
     for (; syms->type == TYPE_CONS; syms = syms->cdr, vals = vals->cdr)
       if (syms->car == sym)
@@ -765,7 +765,7 @@ Object *envAdd(Object **sym, Object **val, Object **env, GC_PARAM) {
 Object *envSet(Object **sym, Object **val, Object **env, GC_PARAM) {
   GC_TRACE(gcEnv, *env);
 
-  printf("envSet: %s\n", (*sym)->string);
+  //printf("envSet: %s\n", (*sym)->string);
   
   for (;;) {
     Object *syms = (*gcEnv)->syms, *vals = (*gcEnv)->vals;
