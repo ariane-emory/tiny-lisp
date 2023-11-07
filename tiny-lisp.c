@@ -977,12 +977,14 @@ Object * evalProgn(Object ** args, Object ** env, Object * GC_ROOTS) {
   GC_TRACE(gcObject, (*args)->car);
   GC_TRACE(gcArgs, (*args)->cdr);
 
-begin:
   
   if (*args == nil)
     return nil;
-  else if ((*args)->cdr == nil)
+  else
+  begin:
+    if ((*args)->cdr == nil) {
     return (*args)->car;
+  }
   else {
     evalExpr(gcObject, env, GC_ROOTS);
     args = gcArgs;
