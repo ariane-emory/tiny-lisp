@@ -978,20 +978,16 @@ Object * evalProgn(Object ** args, Object ** env, Object * GC_ROOTS) {
     return nil;
 
   GC_TRACE(gcObject, (*args)->car); // moved
-  GC_TRACE(gcArgs, (*args)->cdr);   // moved
+  GC_TRACE(gcArgs,   (*args)->cdr); // moved
   
-loop: // added
-  if ((*args)->cdr == nil) {
+loop:
+  if ((*args)->cdr == nil)
     return (*args)->car;
-  }
-  else {
-    // GC_TRACE(gcObject, (*args)->car); 
-    // GC_TRACE(gcArgs, (*args)->cdr);
-    evalExpr(gcObject, env, GC_ROOTS);
-    args = gcArgs; //added
-    goto loop;
-    // return evalProgn(gcArgs, env, GC_ROOTS);
-  }
+
+  evalExpr(gcObject, env, GC_ROOTS);
+  gcArgs   = &(*gcArgs)->cdr;
+  gcObject = &(*gcArgs)->car;
+  goto loop;
 }
 
 Object * evalIf(Object ** args, Object ** env, Object * GC_ROOTS) {
