@@ -974,21 +974,22 @@ Object * evalSetq(Object ** args, Object ** env, Object * GC_ROOTS) {
 }
 
 Object * evalProgn(Object ** args, Object ** env, Object * GC_ROOTS) {
-  GC_TRACE(gcObject, (*args)->car);
-  GC_TRACE(gcArgs, (*args)->cdr);
-
-  
   if (*args == nil)
     return nil;
-  else
-  begin:
-    if ((*args)->cdr == nil) {
+
+  GC_TRACE(gcObject, (*args)->car); // moved
+  GC_TRACE(gcArgs, (*args)->cdr);   // moved
+  
+loop: // added
+  if ((*args)->cdr == nil) {
     return (*args)->car;
   }
   else {
+    // GC_TRACE(gcObject, (*args)->car); 
+    // GC_TRACE(gcArgs, (*args)->cdr);
     evalExpr(gcObject, env, GC_ROOTS);
-    args = gcArgs;
-    goto begin;
+    args = gcArgs; //added
+    goto loop;
     // return evalProgn(gcArgs, env, GC_ROOTS);
   }
 }
