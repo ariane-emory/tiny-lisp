@@ -34,13 +34,13 @@ struct Object {
   Type type;
   size_t size;
   union {
-    struct { double number; };                      // number
-    struct { char string[sizeof (Object * [3])]; };  // string, symbol
-    struct { Object * car, * cdr; };                  // cons
+    struct { double number; };                         // number
+    struct { char string[sizeof (Object * [3])]; };    // string, symbol
+    struct { Object * car, * cdr; };                   // cons
     struct { Object * params, * body, * env; };        // lambda, macro
-    struct { int primitive; char * name; };          // primitive
+    struct { int primitive; char * name; };            // primitive
     struct { Object * parent, * syms, * vals; };       // env
-    struct { Object * forward; };                    // forwarding pointer
+    struct { Object * forward; };                      // forwarding pointer
   };
 };
 
@@ -738,8 +738,6 @@ void writeObject(Object * object, bool readably, FILE *file) {
 Object * envLookup(Object * sym, Object * env) {
   for (; env != nil; env = env->parent) {
     Object * syms = env->syms, *vals = env->vals;
-
-    printf("envLookup: %s\n", sym->string);
     
     for (; syms->type == TYPE_CONS; syms = syms->cdr, vals = vals->cdr)
       if (syms->car == sym)
@@ -765,8 +763,6 @@ Object * envAdd(Object ** sym, Object ** val, Object ** env, Object * GC_ROOTS) 
 Object * envSet(Object ** sym, Object ** val, Object ** env, Object * GC_ROOTS) {
   GC_TRACE(gcEnv, *env);
 
-  printf("envSet: %s\n", (*sym)->string);
-  
   for (;;) {
     Object * syms = (*gcEnv)->syms, *vals = (*gcEnv)->vals;
 
@@ -978,16 +974,20 @@ Object * evalSetq(Object ** args, Object ** env, Object * GC_ROOTS) {
 }
 
 Object * evalProgn(Object ** args, Object ** env, Object * GC_ROOTS) {
+  GC_TRACE(gcObject, (*args)->car);
+  GC_TRACE(gcArgs, (*args)->cdr);
+
+begin:
+  
   if (*args == nil)
     return nil;
   else if ((*args)->cdr == nil)
     return (*args)->car;
   else {
-    GC_TRACE(gcObject, (*args)->car);
-    GC_TRACE(gcArgs, (*args)->cdr);
-
     evalExpr(gcObject, env, GC_ROOTS);
-    return evalProgn(gcArgs, env, GC_ROOTS);
+    args = gcArgs;
+    goto begin;
+    // return evalProgn(gcArgs, env, GC_ROOTS);
   }
 }
 
@@ -1070,7 +1070,16 @@ Object * expandMacroTo(Object ** macro, Object ** args, Object ** cons, Object *
   return *cons;
 }
 
+void printGcRootsLength(Object * GC_ROOTS) {
+  /* int length = 0; */
+  /* for (Object *current = GC_ROOTS; current != nil; current = current->cdr) { */
+  /*   length++; */
+  /* } */
+  // printf("Current GC_ROOTS length: %d\n", length);
+}
+
 Object * evalExpr(Object ** object, Object ** env, Object * GC_ROOTS) {
+  printGcRootsLength(GC_ROOTS);
   GC_TRACE(gcObject, *object);
   GC_TRACE(gcEnv, *env);
 
