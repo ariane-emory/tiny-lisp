@@ -148,15 +148,15 @@ void exceptionWithObject(Object * object, char * format, ...) {
 #define GC_PASTE2(name, id)  GC_PASTE1(name, id)
 #define GC_UNIQUE(name)      GC_PASTE2(name, __LINE__)
 
-#define GC_TRACE(name, init)                                                 \
-  Object GC_UNIQUE(GC_ROOTS) = { TYPE_CONS, .car = init, .cdr = GC_ROOTS };  \
-  Object ** name = &GC_UNIQUE(GC_ROOTS).car;                                  \
-  GC_ROOTS = &GC_UNIQUE(GC_ROOTS)
+#define GC_TRACE(name, init)                                                                                                                \
+  Object GC_UNIQUE(GC_ROOTS) = { TYPE_CONS, .car = init, .cdr = GC_ROOTS };                                                                 \
+  Object ** name = &GC_UNIQUE(GC_ROOTS).car;                                                                                                \
+                                       GC_ROOTS = &GC_UNIQUE(GC_ROOTS)
 
 Object * gcMoveObject(Object * object) {
   // skip object if it is not within from-space (i.e. on the stack)
   if (object < (Object *)memory->fromSpace
-    || object >= (Object *)((char *)memory->fromSpace + memory->fromOffset))
+      || object >= (Object *)((char *)memory->fromSpace + memory->fromOffset))
     return object;
 
   // if the object has already been moved, return its new location
@@ -186,30 +186,30 @@ void gc(Object * GC_ROOTS) {
 
   // iterate over objects in to-space and move all objects they reference
   for (Object * object = memory->toSpace;
-    object < (Object *)((char *)memory->toSpace + memory->toOffset);
-    object = (Object *)((char *)object + object->size)) {
+       object < (Object *)((char *)memory->toSpace + memory->toOffset);
+       object = (Object *)((char *)object + object->size)) {
 
     switch (object->type) {
-      case TYPE_NUMBER:
-      case TYPE_STRING:
-      case TYPE_SYMBOL:
-      case TYPE_PRIMITIVE:
-        break;
-      case TYPE_CONS:
-        object->car = gcMoveObject(object->car);
-        object->cdr = gcMoveObject(object->cdr);
-        break;
-      case TYPE_LAMBDA:
-      case TYPE_MACRO:
-        object->params = gcMoveObject(object->params);
-        object->body = gcMoveObject(object->body);
-        object->env = gcMoveObject(object->env);
-        break;
-      case TYPE_ENV:
-        object->parent = gcMoveObject(object->parent);
-        object->syms = gcMoveObject(object->syms);
-        object->vals = gcMoveObject(object->vals);
-        break;
+    case TYPE_NUMBER:
+    case TYPE_STRING:
+    case TYPE_SYMBOL:
+    case TYPE_PRIMITIVE:
+      break;
+    case TYPE_CONS:
+      object->car = gcMoveObject(object->car);
+      object->cdr = gcMoveObject(object->cdr);
+      break;
+    case TYPE_LAMBDA:
+    case TYPE_MACRO:
+      object->params = gcMoveObject(object->params);
+      object->body = gcMoveObject(object->body);
+      object->env = gcMoveObject(object->env);
+      break;
+    case TYPE_ENV:
+      object->parent = gcMoveObject(object->parent);
+      object->syms = gcMoveObject(object->syms);
+      object->vals = gcMoveObject(object->vals);
+      break;
     }
   }
 
@@ -232,7 +232,7 @@ Object * memoryAllocObject(Type type, size_t size, Object * GC_ROOTS) {
   // allocate from- and to-space
   if (!memory->fromSpace) {
     if (!(memory->fromSpace = mmap(NULL, memory->capacity * 2,
-      PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0)))
+                                   PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0)))
       exception("mmap() failed, %s", strerror(errno));
 
     memory->toSpace = (char *)memory->fromSpace + memory->capacity;
@@ -286,7 +286,7 @@ Object * newStringWithLength(char * string, size_t length, Object * GC_ROOTS) {
       ++i, ++nEscapes;
 
   Object * object = newObjectWithString(TYPE_STRING,
-    length - nEscapes + 1, GC_ROOTS);
+                                        length - nEscapes + 1, GC_ROOTS);
 
   for (int r = 1, w = 0; r <= length; ++r) {
     if (string[r - 1] == '\\' && r < length) {
@@ -320,7 +320,7 @@ Object * newCons(Object ** car, Object ** cdr, Object * GC_ROOTS) {
 Object * newSymbolWithLength(char * string, size_t length, Object * GC_ROOTS) {
   for (Object * object = symbols; object != nil; object = object->cdr)
     if (memcmp(object->car->string, string, length) == 0
-      && object->car->string[length] == '\0')
+        && object->car->string[length] == '\0')
       return object->car;
 
   GC_TRACE(gcObject, newObjectWithString(TYPE_SYMBOL, length + 1, GC_ROOTS));
@@ -459,7 +459,7 @@ int streamGetc(Stream *stream) {
       // read until offset reached
       while (stream->length <= stream->offset) {
         ssize_t nbytes = read(stream->fd, stream->buffer + stream->length,
-          stream->capacity - stream->length);
+                              stream->capacity - stream->length);
 
         if (nbytes > 0)
           stream->length += nbytes;
@@ -545,10 +545,10 @@ Object * readString(Stream *stream, Object * GC_ROOTS) {
     int ch = streamGetc(stream);
     if (ch == EOF)
       exception("unexpected end of stream in string literal \"%.*s\"",
-        (int)(stream->offset - offset), stream->buffer + offset);
+                (int)(stream->offset - offset), stream->buffer + offset);
     if (ch == '"' && !isEscaped)
       return newStringWithLength(stream->buffer + offset,
-        stream->offset - offset - 1, GC_ROOTS);
+                                 stream->offset - offset - 1, GC_ROOTS);
 
     isEscaped = (ch == '\\' && !isEscaped);
   }
@@ -588,7 +588,7 @@ Object * readNumberOrSymbol(Stream *stream, Object * GC_ROOTS) {
   // non-numeric character encountered, read a symbol
   readWhile(stream, isSymbolChar);
   return newSymbolWithLength(stream->buffer + offset,
-    stream->offset - offset, GC_ROOTS);
+                             stream->offset - offset, GC_ROOTS);
 }
 
 Object * reverseList(Object * list) {
@@ -648,7 +648,7 @@ Object * readExpr(Stream *stream, Object * GC_ROOTS) {
     else if (ch == '(')
       return readList(stream, GC_ROOTS);
     else if (isSymbolChar(ch)
-      && (ch != '.' || isSymbolChar(streamPeek(stream))))
+             && (ch != '.' || isSymbolChar(streamPeek(stream))))
       return readNumberOrSymbol(streamSeek(stream, -1), GC_ROOTS);
     else
       exception("unexpected character, `%c'", ch);
@@ -659,13 +659,13 @@ Object * readExpr(Stream *stream, Object * GC_ROOTS) {
 
 void writeObject(Object * object, bool readably, FILE *file) {
   switch (object->type) {
-#define CASE(type, ...)                                                      \
-  case type:                                                                 \
-    fprintf(file, __VA_ARGS__);                                              \
-    break
-  CASE(TYPE_NUMBER, "%g", object->number);
-  CASE(TYPE_SYMBOL, "%s", object->string);
-  CASE(TYPE_PRIMITIVE, "#<Primitive %s>", object->name);
+#define CASE(type, ...)                                                                                                                     \
+    case type:                                                                                                                              \
+      fprintf(file, __VA_ARGS__);                                                                                                           \
+      break
+    CASE(TYPE_NUMBER, "%g", object->number);
+    CASE(TYPE_SYMBOL, "%s", object->string);
+    CASE(TYPE_PRIMITIVE, "#<Primitive %s>", object->name);
 #undef CASE
   case TYPE_STRING:
     if (readably) {
@@ -700,15 +700,15 @@ void writeObject(Object * object, bool readably, FILE *file) {
     }
     fputc(')', file);
     break;
-#define CASE(type, name, object)                                             \
-  case type:                                                                 \
-    fprintf(file, "#<%s ", name);                                            \
-    writeObject(object, readably, file);                                     \
-    fprintf(file, ">");                                                      \
-    break
-  CASE(TYPE_LAMBDA, "Lambda", object->params);
-  CASE(TYPE_MACRO, "Macro", object->params);
-  CASE(TYPE_ENV, "Env", object->syms);
+#define CASE(type, name, object)                                                                                                            \
+    case type:                                                                                                                              \
+      fprintf(file, "#<%s ", name);                                                                                                         \
+      writeObject(object, readably, file);                                                                                                  \
+      fprintf(file, ">");                                                                                                                   \
+      break
+    CASE(TYPE_LAMBDA, "Lambda", object->params);
+    CASE(TYPE_MACRO, "Macro", object->params);
+    CASE(TYPE_ENV, "Env", object->syms);
 #undef CASE
   }
 }
@@ -739,7 +739,7 @@ Object * envLookup(Object * sym, Object * env) {
   for (; env != nil; env = env->parent) {
     Object * syms = env->syms, *vals = env->vals;
 
-    printf("envLookup: %s\n", sym->string);
+    //printf("envLookup: %s\n", sym->string);
     
     for (; syms->type == TYPE_CONS; syms = syms->cdr, vals = vals->cdr)
       if (syms->car == sym)
@@ -765,7 +765,7 @@ Object * envAdd(Object ** sym, Object ** val, Object ** env, Object * GC_ROOTS) 
 Object * envSet(Object ** sym, Object ** val, Object ** env, Object * GC_ROOTS) {
   GC_TRACE(gcEnv, *env);
 
-  printf("envSet: %s\n", (*sym)->string);
+  ///printf("envSet: %s\n", (*sym)->string);
   
   for (;;) {
     Object * syms = (*gcEnv)->syms, *vals = (*gcEnv)->vals;
@@ -842,58 +842,58 @@ Object * primitivePrinc(Object ** args, Object * GC_ROOTS) {
   return (*args)->car;
 }
 
-#define DEFINE_PRIMITIVE_ARITHMETIC(name, op, init)                          \
-Object * name(Object ** args, Object * GC_ROOTS) {                                      \
-  if (*args == nil)                                                          \
-    return newNumber(init, GC_ROOTS);                                        \
-  else if ((*args)->car->type != TYPE_NUMBER)                                \
-    exceptionWithObject((*args)->car, "is not a number");                    \
-  else {                                                                     \
-    Object * object, *rest;                                                   \
-                                                                             \
-    if ((*args)->cdr == nil) {                                               \
-      object = newNumber(init, GC_ROOTS);                                    \
-      rest = *args;                                                          \
-    } else {                                                                 \
-      GC_TRACE(gcFirst, (*args)->car);                                       \
-      object = newObjectFrom(gcFirst, GC_ROOTS);                             \
-      rest = (*args)->cdr;                                                   \
-    }                                                                        \
-                                                                             \
-    for (; rest != nil; rest = rest->cdr) {                                  \
-      if (rest->car->type != TYPE_NUMBER)                                    \
-        exceptionWithObject(rest->car, "is not a number");                   \
-                                                                             \
-      object->number = object->number op rest->car->number;                  \
-    }                                                                        \
-                                                                             \
-    return object;                                                           \
-  }                                                                          \
-}
+#define DEFINE_PRIMITIVE_ARITHMETIC(name, op, init)                                                                                         \
+  Object * name(Object ** args, Object * GC_ROOTS) {                                                                                        \
+    if (*args == nil)                                                                                                                       \
+      return newNumber(init, GC_ROOTS);                                                                                                     \
+    else if ((*args)->car->type != TYPE_NUMBER)                                                                                             \
+      exceptionWithObject((*args)->car, "is not a number");                                                                                 \
+    else {                                                                                                                                  \
+      Object * object, *rest;                                                                                                               \
+                                                                                                                                            \
+      if ((*args)->cdr == nil) {                                                                                                            \
+        object = newNumber(init, GC_ROOTS);                                                                                                 \
+        rest = *args;                                                                                                                       \
+      } else {                                                                                                                              \
+        GC_TRACE(gcFirst, (*args)->car);                                                                                                    \
+        object = newObjectFrom(gcFirst, GC_ROOTS);                                                                                          \
+        rest = (*args)->cdr;                                                                                                                \
+      }                                                                                                                                     \
+                                                                                                                                            \
+      for (; rest != nil; rest = rest->cdr) {                                                                                               \
+        if (rest->car->type != TYPE_NUMBER)                                                                                                 \
+          exceptionWithObject(rest->car, "is not a number");                                                                                \
+                                                                                                                                            \
+        object->number = object->number op rest->car->number;                                                                               \
+      }                                                                                                                                     \
+                                                                                                                                            \
+      return object;                                                                                                                        \
+    }                                                                                                                                       \
+  }
 
 DEFINE_PRIMITIVE_ARITHMETIC(primitiveAdd,      +, 0)
-DEFINE_PRIMITIVE_ARITHMETIC(primitiveSubtract, -, 0)
-DEFINE_PRIMITIVE_ARITHMETIC(primitiveMultiply, *, 1)
-DEFINE_PRIMITIVE_ARITHMETIC(primitiveDivide,   /, 1)
+  DEFINE_PRIMITIVE_ARITHMETIC(primitiveSubtract, -, 0)
+  DEFINE_PRIMITIVE_ARITHMETIC(primitiveMultiply, *, 1)
+  DEFINE_PRIMITIVE_ARITHMETIC(primitiveDivide,   /, 1)
 
-#define DEFINE_PRIMITIVE_RELATIONAL(name, op)                                \
-Object * name(Object ** args, Object * GC_ROOTS) {                                      \
-  if ((*args)->car->type != TYPE_NUMBER)                                     \
-    exceptionWithObject((*args)->car, "is not a number");                    \
-  else {                                                                     \
-    Object * rest = *args;                                                    \
-    bool result = true;                                                      \
-                                                                             \
-    for (; result && rest->cdr != nil; rest = rest->cdr) {                   \
-      if (rest->cdr->car->type != TYPE_NUMBER)                               \
-        exceptionWithObject(rest->cdr->car, "is not a number");              \
-                                                                             \
-      result &= rest->car->number op rest->cdr->car->number;                 \
-    }                                                                        \
-                                                                             \
-    return result ? t : nil;                                                 \
-  }                                                                          \
-}
+#define DEFINE_PRIMITIVE_RELATIONAL(name, op)                                                                                               \
+  Object * name(Object ** args, Object * GC_ROOTS) {                                                                                        \
+    if ((*args)->car->type != TYPE_NUMBER)                                                                                                  \
+      exceptionWithObject((*args)->car, "is not a number");                                                                                 \
+    else {                                                                                                                                  \
+      Object * rest = *args;                                                                                                                \
+      bool result = true;                                                                                                                   \
+                                                                                                                                            \
+      for (; result && rest->cdr != nil; rest = rest->cdr) {                                                                                \
+        if (rest->cdr->car->type != TYPE_NUMBER)                                                                                            \
+          exceptionWithObject(rest->cdr->car, "is not a number");                                                                           \
+                                                                                                                                            \
+        result &= rest->car->number op rest->cdr->car->number;                                                                              \
+      }                                                                                                                                     \
+                                                                                                                                            \
+      return result ? t : nil;                                                                                                              \
+    }                                                                                                                                       \
+  }
 
 DEFINE_PRIMITIVE_RELATIONAL(primitiveEqual,        ==)
 DEFINE_PRIMITIVE_RELATIONAL(primitiveLess,         < )
@@ -1070,7 +1070,18 @@ Object * expandMacroTo(Object ** macro, Object ** args, Object ** cons, Object *
   return *cons;
 }
 
+int gcRootsLength(Object * roots) {
+  int length = 0;
+  for (Object * current = roots; current != nil; current = current->cdr) {
+    length++;
+  }
+  return length;
+}
+
 Object * evalExpr(Object ** object, Object ** env, Object * GC_ROOTS) {
+  // Print the length of GC_ROOTS at the start
+  printf("GC_ROOTS length: %d\n", gcRootsLength(GC_ROOTS));
+
   GC_TRACE(gcObject, *object);
   GC_TRACE(gcEnv, *env);
 
@@ -1109,27 +1120,27 @@ Object * evalExpr(Object ** object, Object ** env, Object * GC_ROOTS) {
 
       if (nArgs < primitive->nMinArgs)
         exceptionWithObject(*gcFunc, "expects at least %d arguments",
-          primitive->nMinArgs);
+                            primitive->nMinArgs);
       if (nArgs > primitive->nMaxArgs && primitive->nMaxArgs >= 0)
         exceptionWithObject(*gcFunc, "expects at most %d arguments",
-          primitive->nMaxArgs);
+                            primitive->nMaxArgs);
       if (primitive->nMaxArgs < 0 && nArgs % -primitive->nMaxArgs)
         exceptionWithObject(*gcFunc, "expects a multiple of %d arguments",
-          -primitive->nMaxArgs);
+                            -primitive->nMaxArgs);
 
       switch ((*gcFunc)->primitive) {
       case PRIMITIVE_QUOTE:  return (*gcArgs)->car;
       case PRIMITIVE_SETQ:   return evalSetq(gcArgs, gcEnv, GC_ROOTS);
       case PRIMITIVE_PROGN:  *gcObject = evalProgn(gcArgs, gcEnv, GC_ROOTS);
-                             break;
+        break;
       case PRIMITIVE_IF:     *gcObject = evalIf(gcArgs, gcEnv, GC_ROOTS);
-                             break;
+        break;
       case PRIMITIVE_COND:   *gcObject = evalCond(gcArgs, gcEnv, GC_ROOTS);
-                             break;
+        break;
       case PRIMITIVE_LAMBDA: return evalLambda(gcArgs, gcEnv, GC_ROOTS);
       case PRIMITIVE_MACRO:  return evalMacro(gcArgs, gcEnv, GC_ROOTS);
       default:               *gcArgs = evalArgs(gcArgs, gcEnv, GC_ROOTS);
-                             return primitive->eval(gcArgs, GC_ROOTS);
+        return primitive->eval(gcArgs, GC_ROOTS);
       }
     } else
       exceptionWithObject(*gcFunc, "is not a function");
@@ -1144,28 +1155,28 @@ static char * stdlib = LISP(
   (setq list (lambda args args))
   
   (setq defmacro (macro (name params . body)
-    (list (quote setq) name (list (quote macro) params . body))))
+                  (list (quote setq) name (list (quote macro) params . body))))
   
   (defmacro defun (name params . body)
-    (list (quote setq) name (list (quote lambda) params . body)))
+   (list (quote setq) name (list (quote lambda) params . body)))
   
   (defun null (x) (eq x nil))
   
   (defun map1 (func xs)
-    (if (null xs)
-        nil
-        (cons (func (car xs))
-              (map1 func (cdr xs)))))
+   (if (null xs)
+     nil
+       (cons (func (car xs))
+        (map1 func (cdr xs)))))
   
   (defmacro and args
-    (cond ((null args) t)
-          ((null (cdr args)) (car args))
-          (t (list (quote if) (car args) (cons (quote and) (cdr args))))))
+   (cond ((null args) t)
+    ((null (cdr args)) (car args))
+    (t (list (quote if) (car args) (cons (quote and) (cdr args))))))
 
   (defmacro or args 
-    (if (null args)
-        nil
-        (cons (quote cond) (map1 list args))))
+   (if (null args)
+     nil
+       (cons (quote cond) (map1 list args))))
 
   (defun not (x) (if x nil t))
 
@@ -1175,21 +1186,21 @@ static char * stdlib = LISP(
   (defun zerop (x) (= x 0))
   
   (defun equal (x y)
-    (or (and (atom x) (atom y)
-             (eq x y))
-        (and (not (atom x)) (not (atom y))
-             (equal (car x) (car y))
-             (equal (cdr x) (cdr y)))))
+   (or (and (atom x) (atom y)
+        (eq x y))
+    (and (not (atom x)) (not (atom y))
+     (equal (car x) (car y))
+     (equal (cdr x) (cdr y)))))
   
   (defun nth (n xs)
-    (if (zerop n)
-        (car xs)
-        (nth (- n 1) (cdr xs))))
+   (if (zerop n)
+     (car xs)
+       (nth (- n 1) (cdr xs))))
 
   (defun append (xs y)
-    (if (null xs)
-        y
-        (cons (car xs) (append (cdr xs) y))))
+   (if (null xs)
+     y
+       (cons (car xs) (append (cdr xs) y))))
 );
 
 // MAIN ///////////////////////////////////////////////////////////////////////
