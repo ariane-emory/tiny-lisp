@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <assert.h>
 
 #if !defined(MAP_ANONYMOUS) && defined(MAP_ANON)
 #define MAP_ANONYMOUS        MAP_ANON
@@ -27,7 +28,8 @@ typedef enum Type {
   TYPE_LAMBDA,
   TYPE_MACRO,
   TYPE_PRIMITIVE,
-  TYPE_ENV
+  TYPE_ENV,
+  TYPE_FORWARD
 } Type;
 
 struct Object {
@@ -160,7 +162,7 @@ Object * gcMoveObject(Object * object) {
     return object;
 
   // if the object has already been moved, return its new location
-  if (object->type == (Type)-1)
+  if (object->type == TYPE_FORWARD)
     return object->forward;
 
   // copy object to to-space
@@ -169,7 +171,7 @@ Object * gcMoveObject(Object * object) {
   memory->toOffset += object->size;
 
   // mark object as moved and set forwarding pointer
-  object->type = (Type)-1;
+  object->type = TYPE_FORWARD;
   object->forward = forward;
 
   return object->forward;
@@ -210,6 +212,8 @@ void gc(Object * GC_ROOTS) {
       object->syms = gcMoveObject(object->syms);
       object->vals = gcMoveObject(object->vals);
       break;
+    case TYPE_FORWARD:
+      assert(0);
     }
   }
 
@@ -710,6 +714,8 @@ void writeObject(Object * object, bool readably, FILE *file) {
     CASE(TYPE_MACRO, "Macro", object->params);
     CASE(TYPE_ENV, "Env", object->syms);
 #undef CASE
+  case TYPE_FORWARD:
+    assert(0);
   }
 }
 
